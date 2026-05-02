@@ -98,15 +98,15 @@ SELECT * FROM dbo.fn_ThongKeTinhTrangSach();
 ```
 ## Phần 3: Xây dựng Store Procedure (Kiến thức 10)
 
-1. Store Procedure có sẵn trong hệ thống:
+# 1. Store Procedure có sẵn trong hệ thống:
 <img width="1920" height="1080" alt="Ảnh chụp màn hình 2026-05-02 174811" src="https://github.com/user-attachments/assets/55866555-fafc-4f83-b502-e93125138b0a" />
-* Trong SQL Server, các System Store Procedure (có tiền tố `sp_`) là các thủ tục được Microsoft viết sẵn để hỗ trợ quản trị và truy xuất thông tin hệ thống.
-* **Một số SP tiêu biểu em tìm hiểu được:**
+Trong SQL Server, các System Store Procedure (có tiền tố `sp_`) là các thủ tục được Microsoft viết sẵn để hỗ trợ quản trị và truy xuất thông tin hệ thống.
+ ** Một số SP tiêu biểu em tìm hiểu được:**
   * `sp_help 'Tên_Bảng'`: Trả về toàn bộ thông tin chi tiết về cấu trúc của một bảng (các cột, kiểu dữ liệu, ràng buộc). Rất hữu ích khi muốn xem nhanh thiết kế bảng.
-  * `sp_rename 'Tên_Cũ', 'Tên_Mới'`: Dùng để đổi tên các đối tượng (bảng, cột) một cách an toàn.
-  * `sp_helpdb`: Liệt kê tất cả các Database đang có trên Server kèm theo kích thước của chúng.
+   * `sp_rename 'Tên_Cũ', 'Tên_Mới'`: Dùng để đổi tên các đối tượng (bảng, cột) một cách an toàn.
+  *`sp_helpdb`: Liệt kê tất cả các Database đang có trên Server kèm theo kích thước của chúng.
 
-2. Store Procedure INSERT có kiểm tra điều kiện:
+# 2. Store Procedure INSERT có kiểm tra điều kiện:
 Logic của em: Viết SP `sp_ThemPhieuMuon` để thêm mới một phiếu mượn sách. Tuy nhiên, trước khi `INSERT`, SP phải kiểm tra xem cuốn sách đó có còn trong kho không (`SoLuongTon > 0`). Nếu còn mới cho mượn, nếu hết thì báo lỗi.
 <img width="1920" height="1080" alt="Ảnh chụp màn hình 2026-05-02 175129" src="https://github.com/user-attachments/assets/08dea00f-56a7-4d1c-addb-36fc4cc27ede" />
 
@@ -135,10 +135,53 @@ END;
 GO
 ```
 
-3. Store Procedure có sử dụng tham số OUTPUT:
+# 3. Store Procedure có sử dụng tham số OUTPUT:
 <img width="1920" height="1080" alt="Ảnh chụp màn hình 2026-05-02 180107" src="https://github.com/user-attachments/assets/23a7d9a9-d7e1-4e97-923d-db83a6e047cd" />
+em viết SP `sp_TinhTienPhat` để tính tổng số tiền phạt của một độc giả dựa trên số ngày mượn quá hạn. Kết quả không in ra màn hình ngay mà được trả về qua một biến `OUTPUT` để các chương trình bên ngoài có thể gọi và sử dụng tiếp.
 
+```code sql
+USE [QuanLyThuVien_K235480106068];
+GO
 
+CREATE OR ALTER PROCEDURE sp_TinhTienPhat
+    @MaDocGia INT,
+    @TongTienPhat MONEY OUTPUT
+AS
+BEGIN
+    -- Phí phạt là 5000đ cho mỗi ngày quá hạn
+    SELECT @TongTienPhat = SUM(DATEDIFF(DAY, [NgayTra], GETDATE()) * 5000)
+    FROM [PhieuMuon]
+    WHERE [MaDocGia] = @MaDocGia AND [TrangThai] = 0 AND [NgayTra] < GETDATE();
+    
+    IF @TongTienPhat IS NULL SET @TongTienPhat = 0;
+END;
+GO
+```
+
+# 4 Store Procedure trả về bảng kết quả từ lệnh JOIN
+em:** Viết SP `sp_XemLichSuMuon` truyền vào Mã Độc Giả. Hệ thống sẽ JOIN bảng `[PhieuMuon]` và bảng `[Sach]` để trả về danh sách chi tiết tên các cuốn sách người đó đã mượn.
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/6b918107-9efe-4c32-a9ed-1e3b314137af" />
+Khi thực thi Procedure, hệ thống trả về một bảng dữ liệu rõ ràng nhờ kết hợp lệnh JOIN giữa bảng Sách và Phiếu Mượn.
+
+```code sql
+USE [QuanLyThuVien_K235480106068];
+GO
+
+CREATE OR ALTER PROCEDURE sp_XemLichSuMuon
+    @MaDocGia INT
+AS
+BEGIN
+    SELECT pm.[MaPhieu], s.[TenSach], pm.[NgayMuon], 
+           CASE WHEN pm.[TrangThai] = 0 THEN N'Chưa trả' ELSE N'Đã trả' END AS [TinhTrang]
+    FROM [PhieuMuon] pm
+    JOIN [Sach] s ON pm.[MaSach] = s.[MaSach]
+    WHERE pm.[MaDocGia] = @MaDocGia;
+END;
+GO
+
+-- Lệnh gọi chạy thử (bắt buộc bôi đen chạy cả lệnh này để ra bảng kết quả):
+EXEC sp_XemLichSuMuon @MaDocGia = 1;
+```
 
 
 

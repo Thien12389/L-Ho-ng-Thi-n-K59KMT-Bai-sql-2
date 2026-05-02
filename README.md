@@ -98,7 +98,7 @@ SELECT * FROM dbo.fn_ThongKeTinhTrangSach();
 ```
 ## Phần 3: Xây dựng Store Procedure.
 
-
+a
 
 
 

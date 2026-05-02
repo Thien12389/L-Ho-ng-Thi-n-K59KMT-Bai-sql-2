@@ -4,7 +4,7 @@
 ## MSSV: K235480106068
 
 ## Phần 1: Thiết kế và Khởi tạo Cấu trúc Dữ liệu
-Bước 1:Trỏ đúng vào Database đã tạo
+Bước 1:Đây là bước khởi tạo Database và cấu trúc các bảng (Độc giả, Sách, Phiếu mượn) cùng dữ liệu mẫu ban đầu để hệ thống có thể hoạt động.
 <img width="1920" height="1080" alt="Ảnh chụp màn hình 2026-05-02 104058" src="https://github.com/user-attachments/assets/9861d708-bcbc-48da-bc43-8ed720150245" />
 
 Bước 2:Tạo Bảng và Thêm Dữ liệu (Phần 1)
@@ -16,84 +16,106 @@ Còn đây là phần code em đã tạo
 USE [QuanLyThuVien_K235480106068];
 GO
 
--- Xóa các bảng cũ nếu đã tồn tại để tránh lỗi trùng lặp khi chạy lại
+-- 1. Xóa các bảng cũ nếu đã tồn tại
 DROP TABLE IF EXISTS [PhieuMuon];
 DROP TABLE IF EXISTS [Sach];
 DROP TABLE IF EXISTS [DocGia];
 GO
 
--- 1. Tạo bảng Độc Giả
-CREATE TABLE [DocGia] (
-    [MaDocGia] INT PRIMARY KEY,
-    [TenDocGia] NVARCHAR(100)
-);
+-- 2. Tạo bảng và thêm dữ liệu
+CREATE TABLE [DocGia] (...);
+CREATE TABLE [Sach] (...);
+CREATE TABLE [PhieuMuon] (...);
 
--- 2. Tạo bảng Sách
-CREATE TABLE [Sach] (
-    [MaSach] INT PRIMARY KEY,
-    [TenSach] NVARCHAR(200),
-    [TheLoai] NVARCHAR(50),
-    [GiaTien] MONEY,
-    [SoLuongTon] INT
-);
-
--- 3. Tạo bảng Phiếu Mượn
-CREATE TABLE [PhieuMuon] (
-    [MaPhieu] INT IDENTITY(1,1) PRIMARY KEY,
-    [MaDocGia] INT FOREIGN KEY REFERENCES [DocGia]([MaDocGia]),
-    [MaSach] INT FOREIGN KEY REFERENCES [Sach]([MaSach]),
-    [NgayMuon] DATETIME,
-    [NgayTra] DATETIME,
-    [TrangThai] INT -- 0: Đang mượn, 1: Đã trả
-);
-GO
-
--- THÊM DỮ LIỆU MẪU (Khai báo rõ tên cột để không bao giờ bị lỗi Msg 213)
-INSERT INTO [DocGia] ([MaDocGia], [TenDocGia]) 
-VALUES (1, N'Lê Đỗ Hoàng Thiện'), (2, N'Nguyễn Văn A');
-
-INSERT INTO [Sach] ([MaSach], [TenSach], [TheLoai], [GiaTien], [SoLuongTon]) 
-VALUES 
-(1, N'Lập trình SQL', N'Công nghệ', 150000, 5),
-(2, N'Đắc Nhân Tâm', N'Kỹ năng', 80000, 2),
-(3, N'Cấu trúc dữ liệu', N'Công nghệ', 120000, 0);
-
-INSERT INTO [PhieuMuon] ([MaDocGia], [MaSach], [NgayMuon], [NgayTra], [TrangThai])
-VALUES (1, 1, '2024-04-01', '2024-04-10', 0);
+INSERT INTO [DocGia] ...
+INSERT INTO [Sach] ...
+INSERT INTO [PhieuMuon] ...
 GO
 ```
 
 ## Phần 2: xây dựng FUNCTION
-Bước 1: Kết quả thực thi (Chạy thử hàm)
+# 1. Lý thuyết về Function trong SQL Server
+Các loại function built-in (hàm có sẵn): - SQL Server cung cấp sẵn các nhóm hàm như: Hàm toán học (ABS, ROUND), Hàm chuỗi (LEN, UPPER, SUBSTRING), Hàm ngày tháng (GETDATE, DATEDIFF), và các Hàm tổng hợp (SUM, AVG, COUNT).
 
-<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/cead57e5-10f2-4642-bea3-1f3b8f92b8b8" />
+Ví dụ đặc sắc: Em thường xuyên sử dụng hàm DATEDIFF để tính toán số ngày quá hạn của phiếu mượn và hàm GETDATE() để lấy thời gian thực tế khi phát sinh giao dịch.
 
+Mục đích của User-Defined Function (Hàm tự viết): - Dùng để đóng gói các logic tính toán phức tạp hoặc các quy tắc nghiệp vụ riêng của thư viện (như công thức tính tiền phạt, phân loại độc giả) để tái sử dụng ở nhiều nơi.
 
-> **Chú thích ảnh:** > * **Bảng phía trên:** Là kết quả em đã chạy thử **Hàm vô hướng** `fn_TongSachDangMuon`. Hàm đã đếm và trả về chính xác tổng số lượng sách mà mỗi độc giả đang mượn.
-> * **Bảng phía dưới:** Là kết quả chạy thử **Hàm nội tuyến** `fn_TimSachTheoTheLoai`. Hàm đã lọc thành công ra danh sách các cuốn sách thuộc thể loại 'Kỹ năng' và có số lượng tồn kho lớn hơn 0.
-
-đây là phần code ạ:
-
-```sql
+Các loại hàm tự viết: 
++ Scalar Function (Hàm vô hướng): Trả về một giá trị đơn duy nhất.
++ Inline Table-Valued Function (Hàm nội tuyến): Trả về một bảng dữ liệu, đóng vai trò như một khung nhìn (View) có tham số.
++  Multi-statement Table-Valued Function (Hàm đa câu lệnh): Trả về một bảng nhưng cho phép viết nhiều câu lệnh logic phức tạp bên trong.
++ Khởi tạo các hàm nghiệp vụ (Code SQL)
+# 2. Khởi tạo các hàm nghiệp vụ (Code SQL)
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/459d6b59-44b8-4a6a-a073-5c542eda9793" />
+```code sql
 USE [QuanLyThuVien_K235480106068];
 GO
 
--- Lệnh 1: Xem số sách mỗi người đang mượn
+-- 1. HÀM VÔ HƯỚNG: Tính tổng số sách mà một độc giả đang mượn (chưa trả)
+CREATE OR ALTER FUNCTION fn_TongSachDangMuon (@MaDocGia INT)
+RETURNS INT
+AS
+BEGIN
+    DECLARE @TongSach INT;
+    SELECT @TongSach = COUNT(*) 
+    FROM [PhieuMuon] 
+    WHERE [MaDocGia] = @MaDocGia AND [TrangThai] = 0; 
+    RETURN ISNULL(@TongSach, 0);
+END;
+GO
+
+-- 2. HÀM NỘI TUYẾN: Tìm kiếm các sách theo Thể loại và kho vẫn còn hàng
+CREATE OR ALTER FUNCTION fn_TimSachTheoTheLoai (@TheLoai NVARCHAR(50))
+RETURNS TABLE
+AS
+RETURN (
+    SELECT [MaSach], [TenSach], [GiaTien], [SoLuongTon]
+    FROM [Sach]
+    WHERE [TheLoai] = @TheLoai AND [SoLuongTon] > 0
+);
+GO
+
+-- 3. HÀM ĐA CÂU LỆNH: Thống kê và đánh giá tình trạng kho sách (Sẵn sàng/Hết hàng)
+CREATE OR ALTER FUNCTION fn_ThongKeTinhTrangSach ()
+RETURNS @BangThongKe TABLE (
+    [MaSach] INT,
+    [TenSach] NVARCHAR(200),
+    [SoLuong] INT,
+    [TinhTrang] NVARCHAR(50)
+)
+AS
+BEGIN
+    INSERT INTO @BangThongKe
+    SELECT 
+        [MaSach], [TenSach], [SoLuongTon],
+        CASE 
+            WHEN [SoLuongTon] = 0 THEN N'Hết hàng'
+            WHEN [SoLuongTon] < 3 THEN N'Sắp hết'
+            ELSE N'Sẵn sàng'
+        END
+    FROM [Sach];
+    RETURN;
+END;
+GO
+```
+
+# 3. Kết quả thực thi
+# 1: Chạy thử Hàm vô hướng và Hàm nội tuyến
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/fdbb5634-b815-4caf-8e6b-971d81fed5eb" />
+- Bảng trên sử dụng hàm fn_TongSachDangMuon để đếm số sách mỗi người đang giữ.
+- Bảng dưới sử dụng hàm fn_TimSachTheoTheLoai để lọc nhanh các sách thuộc nhóm 'Kỹ năng'.
+```code sql
 SELECT [MaDocGia], [TenDocGia], dbo.fn_TongSachDangMuon([MaDocGia]) AS [SoSachDangGiu] FROM [DocGia];
-
--- Lệnh 2: Tìm các sách thuộc thể loại 'Kỹ năng'
 SELECT * FROM dbo.fn_TimSachTheoTheLoai(N'Kỹ năng');
+```
+# 2: Chạy thử Hàm đa câu lệnh (Báo cáo tồn kho)
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/31dd70ac-0549-42eb-b758-4c88021aed46" />
+hàm này xử lý logic phức tạp hơn, tự động gắn nhãn "Sắp hết" hoặc "Hết hàng" dựa trên số lượng tồn thực tế trong kho.
+```code sql
+SELECT * FROM dbo.fn_ThongKeTinhTrangSach();
+```
 
--- Lệnh 3: Xem báo cáo tình trạng kho sách
-SELECT * FROM dbo.fn_ThongKeTinhTrangSach();
-```
-Bước 2:Kiểm tra Hàm đa câu lệnh báo cáo chi tiết tình trạng kho sách.
-<img width="1920" height="1080" alt="Ảnh chụp màn hình 2026-05-02 114524" src="https://github.com/user-attachments/assets/3ba91d41-6ab0-42fb-8883-6ec1138dea45" />
-ở đây em đã kiểm tra được tình trạng kho sách.
-em đã dùng dòng lệnh phía dưới này để kiểm tra kết quả
-```sql
-SELECT * FROM dbo.fn_ThongKeTinhTrangSach();
-```
 ## Phần 3: Xây dựng Store Procedure (Kiến thức 10)
 
 # 1. Store Procedure có sẵn trong hệ thống:

@@ -22,14 +22,44 @@ DROP TABLE IF EXISTS [Sach];
 DROP TABLE IF EXISTS [DocGia];
 GO
 
--- 2. Tạo bảng và thêm dữ liệu
-CREATE TABLE [DocGia] (...);
-CREATE TABLE [Sach] (...);
-CREATE TABLE [PhieuMuon] (...);
+-- 2. Tạo bảng Độc Giả (MaDocGia là Khóa chính - PK)
+CREATE TABLE [DocGia] (
+    [MaDocGia] INT PRIMARY KEY,
+    [TenDocGia] NVARCHAR(100)
+);
 
-INSERT INTO [DocGia] ...
-INSERT INTO [Sach] ...
-INSERT INTO [PhieuMuon] ...
+-- 3. Tạo bảng Sách (MaSach là Khóa chính - PK)
+CREATE TABLE [Sach] (
+    [MaSach] INT PRIMARY KEY,
+    [TenSach] NVARCHAR(200),
+    [TheLoai] NVARCHAR(50),
+    [GiaTien] MONEY,
+    [SoLuongTon] INT
+);
+
+-- 4. Tạo bảng Phiếu Mượn (Có Khóa ngoại - FK liên kết với bảng Sách và Độc giả)
+CREATE TABLE [PhieuMuon] (
+    [MaPhieu] INT IDENTITY(1,1) PRIMARY KEY,
+    [MaDocGia] INT FOREIGN KEY REFERENCES [DocGia]([MaDocGia]),
+    [MaSach] INT FOREIGN KEY REFERENCES [Sach]([MaSach]),
+    [NgayMuon] DATETIME,
+    [NgayTra] DATETIME,
+    [TrangThai] INT -- 0: Đang mượn, 1: Đã trả
+);
+GO
+
+-- 5. Thêm dữ liệu mẫu vào các bảng
+INSERT INTO [DocGia] ([MaDocGia], [TenDocGia]) 
+VALUES (1, N'Lê Đỗ Hoàng Thiện'), (2, N'Nguyễn Văn A');
+
+INSERT INTO [Sach] ([MaSach], [TenSach], [TheLoai], [GiaTien], [SoLuongTon]) 
+VALUES 
+(1, N'Lập trình SQL', N'Công nghệ', 150000, 5),
+(2, N'Đắc Nhân Tâm', N'Kỹ năng', 80000, 2),
+(3, N'Cấu trúc dữ liệu', N'Công nghệ', 120000, 0);
+
+INSERT INTO [PhieuMuon] ([MaDocGia], [MaSach], [NgayMuon], [NgayTra], [TrangThai])
+VALUES (1, 1, '2024-04-01', '2024-04-10', 0);
 GO
 ```
 
@@ -202,6 +232,13 @@ GO
 -- Lệnh gọi chạy thử (bắt buộc bôi đen chạy cả lệnh này để ra bảng kết quả):
 EXEC sp_XemLichSuMuon @MaDocGia = 1;
 ```
+
+## Phần 4: Trigger và Xử lý logic nghiệp vụ (Kiến thức 11)
+1. Làm Phần 4 (Trigger)
+<img width="1920" height="1080" alt="Ảnh chụp màn hình 2026-05-02 225812" src="https://github.com/user-attachments/assets/e175148c-5222-4896-8482-47662b957bde" />
+2. Làm Phần 5 (Cursor)
+<img width="1920" height="1080" alt="Ảnh chụp màn hình 2026-05-02 230118" src="https://github.com/user-attachments/assets/cee254b7-f786-4063-a46a-93bf43f3098c" />
+
 
 
 

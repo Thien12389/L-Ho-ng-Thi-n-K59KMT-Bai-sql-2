@@ -237,6 +237,17 @@ EXEC sp_XemLichSuMuon @MaDocGia = 1;
 1. Trigger tự động cập nhật (Logic thực tế)
 Em tạo trg_A_PhieuMuon để khi có một độc giả mượn sách (INSERT vào bảng PhieuMuon), hệ thống sẽ tự động trừ số lượng tồn kho trong bảng Sach.
 <img width="1920" height="1080" alt="Ảnh chụp màn hình 2026-05-02 225812" src="https://github.com/user-attachments/assets/e175148c-5222-4896-8482-47662b957bde" />
+```code sql
+CREATE OR ALTER TRIGGER trg_A_PhieuMuon 
+ON [PhieuMuon] 
+AFTER INSERT 
+AS
+BEGIN
+    UPDATE s SET s.SoLuongTon = s.SoLuongTon - 1
+    FROM [Sach] s JOIN inserted i ON s.MaSach = i.MaSach;
+END;
+GO
+```
 2.Thử nghiệm lỗi Đệ quy vô tận (Vòng lặp A-B
 Em viết thêm trg_B_Sach. Mỗi khi bảng Sach được cập nhật (do Trigger A tác động), Trigger B này sẽ tự động cập nhật lại ngày trả trong bảng PhieuMuon.
 
@@ -244,8 +255,17 @@ Em viết thêm trg_B_Sach. Mỗi khi bảng Sach được cập nhật (do Trig
 
 Kết quả: Khi thực hiện lệnh INSERT, hệ thống báo lỗi đỏ: "Maximum stored procedure, function, trigger, or view nesting level exceeded (limit 32)".
 <img width="1920" height="1080" alt="Ảnh chụp màn hình 2026-05-02 230118" src="https://github.com/user-attachments/assets/cee254b7-f786-4063-a46a-93bf43f3098c" />
-
-
+```code sql
+CREATE OR ALTER TRIGGER trg_B_Sach 
+ON [Sach] 
+AFTER UPDATE 
+AS
+BEGIN
+    UPDATE pm SET pm.NgayTra = DATEADD(day, 1, pm.NgayTra)
+    FROM [PhieuMuon] pm JOIN inserted i ON pm.MaSach = i.MaSach;
+END;
+GO
+```
 
 
 

@@ -96,9 +96,48 @@ em đã dùng dòng lệnh phía dưới này để kiểm tra kết quả
 ```sql
 SELECT * FROM dbo.fn_ThongKeTinhTrangSach();
 ```
-## Phần 3: Xây dựng Store Procedure.
+## Phần 3: Xây dựng Store Procedure (Kiến thức 10)
 
-a
+1. Store Procedure có sẵn trong hệ thống:
+<img width="1920" height="1080" alt="Ảnh chụp màn hình 2026-05-02 174811" src="https://github.com/user-attachments/assets/55866555-fafc-4f83-b502-e93125138b0a" />
+* Trong SQL Server, các System Store Procedure (có tiền tố `sp_`) là các thủ tục được Microsoft viết sẵn để hỗ trợ quản trị và truy xuất thông tin hệ thống.
+* **Một số SP tiêu biểu em tìm hiểu được:**
+  * `sp_help 'Tên_Bảng'`: Trả về toàn bộ thông tin chi tiết về cấu trúc của một bảng (các cột, kiểu dữ liệu, ràng buộc). Rất hữu ích khi muốn xem nhanh thiết kế bảng.
+  * `sp_rename 'Tên_Cũ', 'Tên_Mới'`: Dùng để đổi tên các đối tượng (bảng, cột) một cách an toàn.
+  * `sp_helpdb`: Liệt kê tất cả các Database đang có trên Server kèm theo kích thước của chúng.
+
+2. Store Procedure INSERT có kiểm tra điều kiện:
+Logic của em: Viết SP `sp_ThemPhieuMuon` để thêm mới một phiếu mượn sách. Tuy nhiên, trước khi `INSERT`, SP phải kiểm tra xem cuốn sách đó có còn trong kho không (`SoLuongTon > 0`). Nếu còn mới cho mượn, nếu hết thì báo lỗi.
+<img width="1920" height="1080" alt="Ảnh chụp màn hình 2026-05-02 175129" src="https://github.com/user-attachments/assets/08dea00f-56a7-4d1c-addb-36fc4cc27ede" />
+
+**Code SQL:**
+
+```sql
+CREATE OR ALTER PROCEDURE sp_ThemPhieuMuon
+    @MaDocGia INT,
+    @MaSach INT
+AS
+BEGIN
+    DECLARE @TonKho INT;
+    SELECT @TonKho = [SoLuongTon] FROM [Sach] WHERE [MaSach] = @MaSach;
+
+    IF @TonKho > 0
+    BEGIN
+        INSERT INTO [PhieuMuon] ([MaDocGia], [MaSach], [NgayMuon], [TrangThai])
+        VALUES (@MaDocGia, @MaSach, GETDATE(), 0);
+        PRINT N'Thành công: Đã tạo phiếu mượn sách!';
+    END
+    ELSE
+    BEGIN
+        PRINT N'Thất bại: Sách này hiện đã hết trong kho!';
+    END
+END;
+GO
+```
+
+3. Store Procedure có sử dụng tham số OUTPUT:
+<img width="1920" height="1080" alt="Ảnh chụp màn hình 2026-05-02 180107" src="https://github.com/user-attachments/assets/23a7d9a9-d7e1-4e97-923d-db83a6e047cd" />
+
 
 
 

@@ -8,60 +8,58 @@ Bước 1:Trỏ đúng vào Database đã tạo
 <img width="1920" height="1080" alt="Ảnh chụp màn hình 2026-05-02 104058" src="https://github.com/user-attachments/assets/9861d708-bcbc-48da-bc43-8ed720150245" />
 
 Bước 2:Tạo Bảng và Thêm Dữ liệu (Phần 1)
-<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/1d856bc2-36d3-40b6-bfe8-d4cc6dbddc76" />
-Ảnh chụp màn hình đoạn code T-SQL khởi tạo 3 loại hàm (Scalar, Inline TVF, Multi-statement TVF) phục vụ nghiệp vụ thư viện. Các thông báo lỗi "already an object named..." phía dưới là minh chứng xác nhận các hàm này đã được thực thi và lưu trữ thành công vào hệ thống.(do em trót bấm nút Execute nhiều lần, lần đầu nó đã tạo xong, lần sau nó báo là bảng đã có sẵn nên không tạo đè lên được nữa)
+ <img width="1920" height="1080" alt="Ảnh chụp màn hình 2026-05-02 215746" src="https://github.com/user-attachments/assets/8ad72e84-d619-4f77-8d31-57908da6a4ed" />
 
 Còn đây là phần code em đã tạo
 ** Code SQL:*
 ```sql
--- 1. HÀM VÔ HƯỚNG (Trả về 1 giá trị duy nhất)
--- Mục đích: Tính tổng số sách mà một độc giả đang mượn (chưa trả)
-CREATE FUNCTION fn_TongSachDangMuon (@MaDocGia INT)
-RETURNS INT
-AS
-BEGIN
-    DECLARE @TongSach INT;
-    SELECT @TongSach = COUNT(*) 
-    FROM [PhieuMuon] 
-    WHERE [MaDocGia] = @MaDocGia AND [TrangThai] = 0; 
-    RETURN ISNULL(@TongSach, 0);
-END;
+USE [QuanLyThuVien_K235480106068];
 GO
 
--- 2. HÀM NỘI TUYẾN (Trả về một bảng dữ liệu)
--- Mục đích: Tìm kiếm các sách theo Thể loại và kho vẫn còn hàng
-CREATE FUNCTION fn_TimSachTheoTheLoai (@TheLoai NVARCHAR(50))
-RETURNS TABLE
-AS
-RETURN (
-    SELECT [MaSach], [TenSach], [GiaTien], [SoLuongTon]
-    FROM [Sach]
-    WHERE [TheLoai] = @TheLoai AND [SoLuongTon] > 0
+-- Xóa các bảng cũ nếu đã tồn tại để tránh lỗi trùng lặp khi chạy lại
+DROP TABLE IF EXISTS [PhieuMuon];
+DROP TABLE IF EXISTS [Sach];
+DROP TABLE IF EXISTS [DocGia];
+GO
+
+-- 1. Tạo bảng Độc Giả
+CREATE TABLE [DocGia] (
+    [MaDocGia] INT PRIMARY KEY,
+    [TenDocGia] NVARCHAR(100)
+);
+
+-- 2. Tạo bảng Sách
+CREATE TABLE [Sach] (
+    [MaSach] INT PRIMARY KEY,
+    [TenSach] NVARCHAR(200),
+    [TheLoai] NVARCHAR(50),
+    [GiaTien] MONEY,
+    [SoLuongTon] INT
+);
+
+-- 3. Tạo bảng Phiếu Mượn
+CREATE TABLE [PhieuMuon] (
+    [MaPhieu] INT IDENTITY(1,1) PRIMARY KEY,
+    [MaDocGia] INT FOREIGN KEY REFERENCES [DocGia]([MaDocGia]),
+    [MaSach] INT FOREIGN KEY REFERENCES [Sach]([MaSach]),
+    [NgayMuon] DATETIME,
+    [NgayTra] DATETIME,
+    [TrangThai] INT -- 0: Đang mượn, 1: Đã trả
 );
 GO
 
--- 3. HÀM ĐA CÂU LỆNH (Sử dụng biến bảng và logic phức tạp)
--- Mục đích: Đánh giá và dán nhãn tình trạng của từng cuốn sách trong kho
-CREATE FUNCTION fn_ThongKeTinhTrangSach ()
-RETURNS @BangThongKe TABLE (
-    [MaSach] INT,
-    [TenSach] NVARCHAR(200),
-    [SoLuong] INT,
-    [TinhTrang] NVARCHAR(50)
-)
-AS
-BEGIN
-    INSERT INTO @BangThongKe
-    SELECT 
-        [MaSach], [TenSach], [SoLuongTon],
-        CASE 
-            WHEN [SoLuongTon] = 0 THEN N'Hết hàng'
-            WHEN [SoLuongTon] < 3 THEN N'Sắp hết'
-            ELSE N'Sẵn sàng'
-        END
-    FROM [Sach];
-    RETURN;
-END;
+-- THÊM DỮ LIỆU MẪU (Khai báo rõ tên cột để không bao giờ bị lỗi Msg 213)
+INSERT INTO [DocGia] ([MaDocGia], [TenDocGia]) 
+VALUES (1, N'Lê Đỗ Hoàng Thiện'), (2, N'Nguyễn Văn A');
+
+INSERT INTO [Sach] ([MaSach], [TenSach], [TheLoai], [GiaTien], [SoLuongTon]) 
+VALUES 
+(1, N'Lập trình SQL', N'Công nghệ', 150000, 5),
+(2, N'Đắc Nhân Tâm', N'Kỹ năng', 80000, 2),
+(3, N'Cấu trúc dữ liệu', N'Công nghệ', 120000, 0);
+
+INSERT INTO [PhieuMuon] ([MaDocGia], [MaSach], [NgayMuon], [NgayTra], [TrangThai])
+VALUES (1, 1, '2024-04-01', '2024-04-10', 0);
 GO
 ```
 

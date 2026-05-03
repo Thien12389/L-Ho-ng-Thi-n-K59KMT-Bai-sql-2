@@ -78,6 +78,7 @@ Các loại hàm tự viết:
 + Khởi tạo các hàm nghiệp vụ (Code SQL)
 # 2. Khởi tạo các hàm nghiệp vụ (Code SQL)
 <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/459d6b59-44b8-4a6a-a073-5c542eda9793" />
+
 ```code sql
 USE [QuanLyThuVien_K235480106068];
 GO
@@ -131,24 +132,26 @@ GO
 ```
 
 # 3. Kết quả thực thi
-# 1: Chạy thử Hàm vô hướng và Hàm nội tuyến
++ Chạy thử Hàm vô hướng và Hàm nội tuyến
 <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/fdbb5634-b815-4caf-8e6b-971d81fed5eb" />
 - Bảng trên sử dụng hàm fn_TongSachDangMuon để đếm số sách mỗi người đang giữ.
 - Bảng dưới sử dụng hàm fn_TimSachTheoTheLoai để lọc nhanh các sách thuộc nhóm 'Kỹ năng'.
+
 ```code sql
 SELECT [MaDocGia], [TenDocGia], dbo.fn_TongSachDangMuon([MaDocGia]) AS [SoSachDangGiu] FROM [DocGia];
 SELECT * FROM dbo.fn_TimSachTheoTheLoai(N'Kỹ năng');
 ```
-# 2: Chạy thử Hàm đa câu lệnh (Báo cáo tồn kho)
++ 2: Chạy thử Hàm đa câu lệnh (Báo cáo tồn kho)
 <img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/31dd70ac-0549-42eb-b758-4c88021aed46" />
 hàm này xử lý logic phức tạp hơn, tự động gắn nhãn "Sắp hết" hoặc "Hết hàng" dựa trên số lượng tồn thực tế trong kho.
+
 ```code sql
 SELECT * FROM dbo.fn_ThongKeTinhTrangSach();
 ```
 
 ## Phần 3: Xây dựng Store Procedure (Kiến thức 10)
 
-# 1. Store Procedure có sẵn trong hệ thống:
+1. Store Procedure có sẵn trong hệ thống:
 <img width="1920" height="1080" alt="Ảnh chụp màn hình 2026-05-02 174811" src="https://github.com/user-attachments/assets/55866555-fafc-4f83-b502-e93125138b0a" />
 Trong SQL Server, các System Store Procedure (có tiền tố `sp_`) là các thủ tục được Microsoft viết sẵn để hỗ trợ quản trị và truy xuất thông tin hệ thống.
  ** Một số SP tiêu biểu em tìm hiểu được:**
@@ -156,7 +159,7 @@ Trong SQL Server, các System Store Procedure (có tiền tố `sp_`) là các t
    * `sp_rename 'Tên_Cũ', 'Tên_Mới'`: Dùng để đổi tên các đối tượng (bảng, cột) một cách an toàn.
   *`sp_helpdb`: Liệt kê tất cả các Database đang có trên Server kèm theo kích thước của chúng.
 
-# 2. Store Procedure INSERT có kiểm tra điều kiện:
+2. Store Procedure INSERT có kiểm tra điều kiện:
 Logic của em: Viết SP `sp_ThemPhieuMuon` để thêm mới một phiếu mượn sách. Tuy nhiên, trước khi `INSERT`, SP phải kiểm tra xem cuốn sách đó có còn trong kho không (`SoLuongTon > 0`). Nếu còn mới cho mượn, nếu hết thì báo lỗi.
 <img width="1920" height="1080" alt="Ảnh chụp màn hình 2026-05-02 175129" src="https://github.com/user-attachments/assets/08dea00f-56a7-4d1c-addb-36fc4cc27ede" />
 
@@ -339,6 +342,23 @@ CLOSE cur_XuLyTienPhat;
 DEALLOCATE cur_XuLyTienPhat;
 GO
 ```
+3. Giải pháp 2: Sử dụng lệnh SELECT (Set-based) - Tối ưu hiệu suất
+Thay vì duyệt từng dòng, em sử dụng truy vấn tập hợp (Set-based) để tính toán toàn bộ danh sách trong một lần duy nhất.
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/189fa6a3-25cd-4191-a4d6-4018eb78f262" />
+Bảng kết quả trả về từ lệnh SELECT. Kết quả khớp hoàn toàn với phương pháp dùng Cursor nhưng trình bày dưới dạng bảng chuyên nghiệp.
+
+4. Phân tích: Khi nào bắt buộc sử dụng Cursor?
+Mặc dù SELECT luôn nhanh hơn, nhưng em nhận thấy có những bài toán đặc thù chỉ có Cursor mới giải quyết tốt:
+
+Bài toán: Tính số dư lũy kế (Running Total)
+
+Ví dụ: Trong báo cáo kế toán của thư viện, dòng tính toán tháng này phải lấy kết quả "Số dư" của dòng tháng trước đó để tính tiếp.
+
+Vì SQL Server xử lý các dòng độc lập, nên lệnh SELECT thuần rất khó để lấy giá trị vừa tính xong của dòng kề trước.
+
+Cursor cho phép lưu giá trị đó vào một biến trung gian và mang sang dòng tiếp theo, giúp giải quyết các bài toán có tính chất "lũy kế" một cách tự nhiên và chính xác.
+
+Nguyên tắc vàng trong SQL là ưu tiên dùng Set-based (SELECT) để tối ưu tốc độ. Chỉ sử dụng Cursor khi gặp các logic nghiệp vụ phức tạp, xử lý tuần tự mà các hàm tập hợp không thể đáp ứng.
 
 
 

@@ -234,10 +234,14 @@ EXEC sp_XemLichSuMuon @MaDocGia = 1;
 ```
 
 ## Phần 4: Trigger và Xử lý logic nghiệp vụ (Kiến thức 11)
-1. Trigger tự động cập nhật (Logic thực tế)
-Em tạo trg_A_PhieuMuon để khi có một độc giả mượn sách (INSERT vào bảng PhieuMuon), hệ thống sẽ tự động trừ số lượng tồn kho trong bảng Sach.
-<img width="1920" height="1080" alt="Ảnh chụp màn hình 2026-05-02 225812" src="https://github.com/user-attachments/assets/e175148c-5222-4896-8482-47662b957bde" />
-```code sql
+Trong phần này, em thực hiện kịch bản tạo ra lỗi Đệ quy vô tận (Recursive Trigger) để hiểu về cơ chế kiểm soát của SQL Server.
+
+1. Trigger A: Tự động cập nhật kho khi mượn sách
+Mô tả: Khi có một bản ghi mới được thêm vào bảng [PhieuMuon], Trigger này sẽ tự động trừ đi 1 sản phẩm trong bảng [Sach].
+<img width="1920" height="1080" alt="Ảnh chụp màn hình 2026-05-03 180427" src="https://github.com/user-attachments/assets/4696c6f1-6c6d-41a8-a364-a17499b77bb5" />
+
+Code SQL:
+```
 CREATE OR ALTER TRIGGER trg_A_PhieuMuon 
 ON [PhieuMuon] 
 AFTER INSERT 
@@ -248,13 +252,11 @@ BEGIN
 END;
 GO
 ```
-2.Thử nghiệm lỗi Đệ quy vô tận (Vòng lặp A-B
-Em viết thêm trg_B_Sach. Mỗi khi bảng Sach được cập nhật (do Trigger A tác động), Trigger B này sẽ tự động cập nhật lại ngày trả trong bảng PhieuMuon.
+2. Trigger B: Cố tình tạo vòng lặp (Ping-Pong)
+Mô tả: Em tạo thêm Trigger B trên bảng [Sach]. Khi số lượng tồn bị thay đổi (do Trigger A tác động), Trigger B sẽ tự động cập nhật lại ngày trả của sách trong bảng [PhieuMuon].
+Việc này tạo ra một vòng lặp: A gọi B -> B gọi A liên tục.
+<img width="1920" height="1080" alt="Ảnh chụp màn hình 2026-05-03 183533" src="https://github.com/user-attachments/assets/e03fb234-fd8a-471d-9c06-e265f18183d6" />
 
-Điều này tạo ra vòng lặp: A gọi B -> B lại gọi A không hồi kết.
-
-Kết quả: Khi thực hiện lệnh INSERT, hệ thống báo lỗi đỏ: "Maximum stored procedure, function, trigger, or view nesting level exceeded (limit 32)".
-<img width="1920" height="1080" alt="Ảnh chụp màn hình 2026-05-02 230118" src="https://github.com/user-attachments/assets/cee254b7-f786-4063-a46a-93bf43f3098c" />
 ```code sql
 CREATE OR ALTER TRIGGER trg_B_Sach 
 ON [Sach] 
@@ -266,6 +268,79 @@ BEGIN
 END;
 GO
 ```
+3. Kích hoạt và quan sát lỗi đệ quy
+<img width="1920" height="1080" alt="Ảnh chụp màn hình 2026-05-03 184034" src="https://github.com/user-attachments/assets/5bc6c32d-9b62-4265-af5a-e19aa69fbd0a" />
+Ảnh chụp màn hình thông báo lỗi từ SQL Server. Hệ thống đã tự động ngắt giao dịch và báo lỗi vượt quá giới hạn lồng nhau (limit 32) khi phát hiện vòng lặp đệ quy vô tận giữa Trigger A và Trigger B, nhằm bảo vệ tài nguyên máy chủ khỏi bị treo
+
+```code sql
+INSERT INTO [PhieuMuon] ([MaDocGia], [MaSach], [NgayMuon], [NgayTra], [TrangThai])
+VALUES (1, 2, GETDATE(), '2026-05-15', 0);
+```
+
+## Phần 5: Cursor và Duyệt dữ liệu (Kiến thức 11)
+1. Bài toán thực tế
+Em đặt ra logic: Tính tiền phạt quá hạn cho các phiếu mượn chưa trả.
+
+Điều kiện: Phiếu mượn có TrangThai = 0 (chưa trả) và NgayTra < Ngày hiện tại.
+
+Mức phạt: 5.000 VNĐ cho mỗi ngày chậm trễ.
+
+2. Giải pháp 1: Sử dụng CURSOR (Xử lý tuần tự)
+Em dùng Cursor để "cầm tay chỉ việc" cho SQL Server: mở danh sách, đi đến từng dòng, tính toán và in kết quả.
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/b652cf68-3170-4368-80c6-bd8ddcff55a4" />
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/287657bf-6fab-4e7c-befc-9be244d2fce4" />
+Bảng kết quả trả về từ câu lệnh SELECT (Set-based). Kết quả tính toán số ngày trễ và tiền phạt hoàn toàn khớp với phương pháp dùng Cursor ở trên.
+
+* Từ bài toán này, em nhận thấy nguyên tắc vàng trong SQL Server là: "Hãy suy nghĩ theo hướng Tập hợp (Set-based), thay vì hướng Tuần tự (Procedural)". Dù Cursor có thể giải quyết bài toán, nhưng nếu một nghiệp vụ có thể dùng các lệnh SQL thuần (như SELECT, UPDATE, DELETE) kết hợp với các hàm tích hợp (như DATEDIFF), thì tuyệt đối phải ưu tiên dùng SQL thuần để tối ưu hiệu suất toàn hệ thống, tránh gây nghẽn cổ chai (bottleneck) khi dữ liệu phình to.*
+
+```code sql
+-- 0. CHỌN ĐÚNG CƠ SỞ DỮ LIỆU CỦA BẠN (Đảm bảo tên này khớp với tên DB của bạn)
+USE [QuanLyThuVien_K235480106068];
+GO
+
+-- 1. TẮT 2 TRIGGER ĐỂ NGĂN LỖI ĐỆ QUY
+DISABLE TRIGGER trg_A_PhieuMuon ON [PhieuMuon];
+DISABLE TRIGGER trg_B_Sach ON [Sach];
+GO
+
+-- 2. THÊM 1 PHIẾU MƯỢN ĐÃ QUÁ HẠN TỪ NĂM 2024 ĐỂ LÀM MỒI
+INSERT INTO [PhieuMuon] ([MaDocGia], [MaSach], [NgayMuon], [NgayTra], [TrangThai])
+VALUES (1, 1, '2024-04-01', '2024-04-15', 0);
+GO
+
+-- 3. CHẠY CURSOR ĐỂ TÍNH TIỀN PHẠT CHO PHIẾU VỪA THÊM
+SET STATISTICS TIME ON;
+GO
+
+DECLARE @MaPhieu INT, @NgayTra DATE, @SoNgayTre INT, @TienPhat MONEY;
+DECLARE @NgayHienTai DATE = GETDATE();
+
+-- Khai báo Cursor duyệt danh sách phiếu quá hạn
+DECLARE cur_XuLyTienPhat CURSOR FOR 
+SELECT MaPhieu, NgayTra FROM [PhieuMuon] 
+WHERE TrangThai = 0 AND NgayTra < @NgayHienTai;
+
+OPEN cur_XuLyTienPhat;
+FETCH NEXT FROM cur_XuLyTienPhat INTO @MaPhieu, @NgayTra;
+
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    SET @SoNgayTre = DATEDIFF(day, @NgayTra, @NgayHienTai);
+    SET @TienPhat = @SoNgayTre * 5000;
+    
+    PRINT N'Phiếu: ' + CAST(@MaPhieu AS VARCHAR) + 
+          N' - Trễ: ' + CAST(@SoNgayTre AS VARCHAR) + 
+          N' ngày - Phạt: ' + CAST(@TienPhat AS VARCHAR) + ' VNĐ';
+          
+    FETCH NEXT FROM cur_XuLyTienPhat INTO @MaPhieu, @NgayTra;
+END
+
+CLOSE cur_XuLyTienPhat;
+DEALLOCATE cur_XuLyTienPhat;
+GO
+```
+
+
 
 
 

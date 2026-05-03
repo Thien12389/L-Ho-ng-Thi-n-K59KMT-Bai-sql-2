@@ -160,6 +160,7 @@ Trong SQL Server, các System Store Procedure (có tiền tố `sp_`) là các t
   *`sp_helpdb`: Liệt kê tất cả các Database đang có trên Server kèm theo kích thước của chúng.
 
 2. Store Procedure INSERT có kiểm tra điều kiện:
+
 Logic của em: Viết SP `sp_ThemPhieuMuon` để thêm mới một phiếu mượn sách. Tuy nhiên, trước khi `INSERT`, SP phải kiểm tra xem cuốn sách đó có còn trong kho không (`SoLuongTon > 0`). Nếu còn mới cho mượn, nếu hết thì báo lỗi.
 <img width="1920" height="1080" alt="Ảnh chụp màn hình 2026-05-02 175129" src="https://github.com/user-attachments/assets/08dea00f-56a7-4d1c-addb-36fc4cc27ede" />
 
@@ -255,6 +256,7 @@ BEGIN
 END;
 GO
 ```
+
 2. Trigger B: Cố tình tạo vòng lặp (Ping-Pong)
 Mô tả: Em tạo thêm Trigger B trên bảng [Sach]. Khi số lượng tồn bị thay đổi (do Trigger A tác động), Trigger B sẽ tự động cập nhật lại ngày trả của sách trong bảng [PhieuMuon].
 Việc này tạo ra một vòng lặp: A gọi B -> B gọi A liên tục.
@@ -271,6 +273,7 @@ BEGIN
 END;
 GO
 ```
+
 3. Kích hoạt và quan sát lỗi đệ quy
 <img width="1920" height="1080" alt="Ảnh chụp màn hình 2026-05-03 184034" src="https://github.com/user-attachments/assets/5bc6c32d-9b62-4265-af5a-e19aa69fbd0a" />
 Ảnh chụp màn hình thông báo lỗi từ SQL Server. Hệ thống đã tự động ngắt giao dịch và báo lỗi vượt quá giới hạn lồng nhau (limit 32) khi phát hiện vòng lặp đệ quy vô tận giữa Trigger A và Trigger B, nhằm bảo vệ tài nguyên máy chủ khỏi bị treo
@@ -359,6 +362,15 @@ Vì SQL Server xử lý các dòng độc lập, nên lệnh SELECT thuần rấ
 Cursor cho phép lưu giá trị đó vào một biến trung gian và mang sang dòng tiếp theo, giúp giải quyết các bài toán có tính chất "lũy kế" một cách tự nhiên và chính xác.
 
 Nguyên tắc vàng trong SQL là ưu tiên dùng Set-based (SELECT) để tối ưu tốc độ. Chỉ sử dụng Cursor khi gặp các logic nghiệp vụ phức tạp, xử lý tuần tự mà các hàm tập hợp không thể đáp ứng.
+
+##  TỔNG KẾT BÀI KIỂM TRA SỐ 2
+
+Qua bài tập này, em đã vận dụng thành công các kiến thức SQL Server từ tuần 1 đến tuần 4 vào bài toán thực tế là Quản lý thư viện. Bài làm giúp em củng cố vững chắc các kỹ năng:
+- Thiết kế CSDL và đóng gói logic nghiệp vụ an toàn bằng **Function/Procedure**.
+- Nắm bắt cơ chế hoạt động của **Trigger** (kể cả việc chủ động tạo và xử lý lỗi đệ quy Ping-Pong).
+- Hiểu sâu về tối ưu hóa hiệu suất, biết rõ khi nào nên dùng truy vấn tập hợp **SELECT (Set-based)** cực nhanh và khi nào bắt buộc phải duyệt tuần tự bằng **Cursor**.
+
+Em xin chân thành cảm ơn thầy đã dành thời gian xem và chấm bài. Trong quá trình làm bài chắc chắn vẫn còn những thiếu sót và đôi khi phải xóa đi chỉnh lại bài nhiều, rất mong thầy thông cảm và bỏ qua cho em ạ. Em cảm ơn thầy rất nhiều!
 
 
 
